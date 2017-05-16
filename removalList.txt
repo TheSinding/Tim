@@ -1,0 +1,10 @@
+#!/bin/bash
+
+
+# Standard gnome stuff
+chromium
+pidgin
+gnome-music
+brasero
+cheese
+

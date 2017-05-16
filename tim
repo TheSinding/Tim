@@ -1,0 +1,172 @@
+#!/bin/bash
+SOFTWARE_LIST="./softwareList.txt"
+
+UNINSTALL_LIST="./removalList.txt"
+CLONE_LIST="./cloneList.txt"
+CUSTOM_CLONE_FILE=false
+CUSTOM_SOFTWARE_FILE=false
+IGNORE_CLONE=false
+IGNORE_SOFTWARE=false
+IGNORE_UNINSTALL=false
+WELCOME(){
+echo "  _______ _            	"
+echo " |__   __(_)          	"
+echo "    | |   _ _ __ ___   	"
+echo "    | |  | | '_ \` _ \\	"
+echo "    | |  | | | | | | | 	"
+echo "    |_|  |_|_| |_| |_| 	"
+echo "	The install script"
+echo -e "\n\nWritten by Simon Sinding\n\n"
+                                                           
+                                                           
+}
+WELCOME
+STRING_FORMATTER(){
+	pad=$(printf '%0.1s' "-"{1..60})
+	padlength=40
+	printf '%*s\n' $padlength "$pad"
+	printf '%*s %s\n' $padlength "$1" 
+	printf '%*s\n\n' $padlength "$pad"
+}
+INSTALL_SOFTWARE(){
+	while IFS='' read -r line || [[ -n "$line" ]]; do
+		if [[ ${line:0:1} == "#" ]] || [[ $line == "" ]]; then continue; fi;
+		STRING_FORMATTER "Installing $line"	
+		installed=`yaourt -Qs $line`
+		if [ -n "$installed" ];	then 
+						echo -e "$line is already installed\n"
+		else 
+				yaourt -S $line
+				if [[ $? -ne 0 ]]; then
+								echo -e "\nAn error occuried, try without verification check?"
+								read -p "(y/n): " USE_VERIFICATION </dev/tty
+					if [[ "$USE_VERIFICATION" = "y" ]] || [[ "$USE_VERIFICATION" = "Y" ]] || [[ "$USE_VERIFICATION" = "yes" ]]; then
+							echo -e "Trying without verification\n"
+							yaourt --m-arg --skipchecksums --m-arg --skippgpcheck -Sb $line
+					else
+						echo -e "\nContinuing, with the rest of the list...\n"
+					fi
+				fi
+			fi
+	done < "$1"
+}
+INSTALL_CLONES(){
+	while IFS='' read -r line || [[ -n "$line" ]]; do
+		if [[ ${line:0:1} == "#" ]]; then continue; fi;
+		local split=($line);
+		local repo=${split[0]}
+		local folder=${split[1]}
+		STRING_FORMATTER "Cloning $repo to $folder"
+		if [[ ! -f $folder ]]; then
+			git clone $repo $folder
+		else
+			echo "$folder already exist"
+		fi
+	done < "$1"
+}
+UNINSTALL_SOFTWARE(){
+    list=""
+	while IFS='' read -r line || [[ -n "$line" ]]; do
+		if [[ ${line:0:1} == "#" ]] || [[ $line == "" ]]; then continue; fi;
+		STRING_FORMATTER "Uninstalling $line"	
+		installed=`yaourt -Qs $line`
+		if [ ! -n "$installed" ];	then 
+						echo -e "$line is not installed\n"
+        else
+            list="$list $line"
+        fi
+	done < "$1"
+    yaourt -R $list;
+}
+for arg in "$@"; do
+  shift
+  case "$arg" in
+    "--ignore-clone") set -- "$@" "-o" ;;
+    "--ignore-install") set -- "$@" "-p" ;;
+    "--ignore-uninstall") set -- "$@" "-u" ;;
+   *)        set -- "$@" "$arg"
+  esac
+done
+
+OPTIN=1
+while getopts  ":s:g:opu" opt; do
+  case $opt in
+    s)
+			if [[ ! -f "$OPTARG" ]]; then
+							echo "$OPTARG does not exist!"
+							exit 1;
+			fi
+			CUSTOM_SOFTWARE_FILE=true
+			SOFTWARE_LIST=$OPTARG
+      echo -e "Not using defualt software-list\nUsing: $OPTARG" >&2
+      ;;
+		g)
+			if [[ ! -f "$OPTARG" ]]; then
+							echo "$OPTARG does not exist!"
+							exit 1;
+			fi
+			CUSTOM_CLONE_FILE=true;
+			CLONE_LIST=$OPTARG
+			echo -e "Not using defualt clone list\nUsing: $OPTARG" >&2
+			
+			;;
+        l) 	if [[ ! -f "$OPTARG" ]]; then
+							echo "$OPTARG does not exist!"
+							exit 1;
+			fi
+			CUSTOM_UNINSTALL_LIST=true;
+			UNINSTALL_LIST=$OPTARG
+			echo -e "Not using defualt uninstall list\nUsing: $OPTARG" >&2
+			
+			;;
+
+		p)
+			echo "Ignoring $SOFTWARE_LIST";
+			IGNORE_SOFTWARE=true
+			;;
+		o)
+			echo "Ignoring $CLONE_LIST";
+			IGNORE_CLONE=true
+			;;
+        u)  echo "Not uninstalling";
+            IGNORE_UNINSTALL=true
+            ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+    	;;
+  esac
+done
+if ! $IGNORE_SOFTWARE; then
+	if [[ ! -f "$SOFTWARE_LIST" ]] && [[ ! $CUSTOM_SOFTWARE_FILE ]]; then
+		echo "Defualt software list does not exist!"
+		echo "Make sure a file called $SOFTWARE_LIST exist in same folder as this script"
+		exit 1;
+	fi
+			echo -e "---- Installing from $SOFTWARE_LIST ----\n"
+				INSTALL_SOFTWARE $SOFTWARE_LIST
+fi
+if ! $IGNORE_CLONE; then
+	if [[ ! -f "$CLONE_LIST" ]] && [[ ! $CUSTOM_CLONE_FILE ]]; then
+		echo "Defualt clones list does not exist!"
+		echo "Make sure a file called $CLONE_LIST exist in same folder as this script"
+		exit 1;
+	fi
+
+				echo -e "--- Installing from $CLONE_LIST ----\n"
+				INSTALL_CLONES $CLONE_LIST
+fi
+if ! $IGNORE_UNINSTALL; then
+	if [[ ! -f "$UNINSTALL_LIST" ]] && [[ ! $CUSTOM_UNINSTALL_LIST ]]; then
+		echo "Defualt software removal list does not exist!"
+		echo "Make sure a file called $UNINSTALL_LIST exist in same folder as this script"
+		exit 1;
+	fi
+			echo -e "---- Installing from $UNINSTALL_LIST ----\n"
+				UNINSTALL_SOFTWARE $UNINSTALL_LIST
+fi
+

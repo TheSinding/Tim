@@ -1,0 +1,18 @@
+#!/bin/bash
+
+
+# Test Comment
+google-chrome-beta
+slack-desktop
+
+# Dev tools
+visual-studio-code-insiders
+intellij-idea-ce
+nodejs
+postman-bin
+android-studio
+pgadmin4
+htop
+
+# Dev libs
+jdk8-openjdk
